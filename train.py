@@ -175,7 +175,8 @@ num_classes = 2  # Binary classification (Goal or No Goal)
 forward_expansion = 4
 dropout = 0.1
 batch_size = 32
-epochs = 5
+epochs = 10
+weighted_loss = [1.0, 1.0]  # weight loss for [No Goal, Goal] -> This could be [1 / freq_of_no_goal, 1 / freq_of_goal] or a simpler ratio
 
 # File paths
 folder_path = "/mnt/Data/lf/SoccerNetClip10Videos/Laliga/csvfiles"
@@ -193,7 +194,8 @@ dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 model = Transformer(vocab_size, embed_size, num_layers, num_heads, seq_len, num_classes, forward_expansion, dropout).to(device)
 
 # Criterion
-criterion = nn.CrossEntropyLoss()
+weights = torch.tensor(weighted_loss, dtype=torch.float).to(device)
+criterion = nn.CrossEntropyLoss(weight=weights)
 # criterion = FocalLoss(alpha=1, gamma=2)
 
 # Optimizer
