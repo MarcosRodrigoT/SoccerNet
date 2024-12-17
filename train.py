@@ -168,15 +168,16 @@ class Transformer(nn.Module):
 
 # Parameters
 vocab_size = 10000
-seq_len = 50
-embed_size = 256  # 128
-num_layers = 4  # 3
+seq_len = 10  # 10 - 50
+embed_size = 128  # 128 - 256
+num_layers = 3  # 3 - 4
 num_heads = 4  # 4
-forward_expansion = 512  # 4
+forward_expansion = 4  # 4 - 512
 num_classes = 2  # Binary classification (No Goal or Goal)
 dropout = 0.1
-batch_size = 32
-epochs = 20
+batch_size = 256  # 256 - 32
+learning_rate = 1e-3
+epochs = 50  # 50 - 5
 weighted_loss = [1.0, 1.0]  # weight loss for [No Goal, Goal] -> This could be [1 / freq_of_no_goal, 1 / freq_of_goal] or a simpler ratio
 weighted_sampler = True
 
@@ -213,7 +214,7 @@ criterion = nn.CrossEntropyLoss(weight=weights)
 # criterion = FocalLoss(alpha=1, gamma=2)
 
 # Optimizer
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 # Metrics storage
 losses = []
@@ -306,5 +307,6 @@ with torch.no_grad():
     outputs = model(inputs)
     _, predicted = torch.max(outputs, 1)
 
-print("Predicted labels: ", predicted.cpu().numpy())
-print("Actual labels:    ", targets.cpu().numpy())
+print("Predicted labels -  Actual labels")
+for prediction, target in zip(predicted.cpu().numpy(), targets.cpu().numpy()):
+    print(f"\t{prediction}\t -\t {target}")
