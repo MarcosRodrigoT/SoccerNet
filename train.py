@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 
 
 # Dataset for football transcription
@@ -177,6 +177,7 @@ dropout = 0.1
 batch_size = 32
 epochs = 10
 weighted_loss = [1.0, 1.0]  # weight loss for [No Goal, Goal] -> This could be [1 / freq_of_no_goal, 1 / freq_of_goal] or a simpler ratio
+weighted_sampler = True
 
 # File paths
 folder_path = "/mnt/Data/lf/SoccerNetClip10Videos/Laliga/csvfiles"
@@ -188,7 +189,19 @@ print("Using device:", device)
 
 # Data preparation
 dataset = FootballDataset(folder_path, vocab_size, seq_len)
-dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+if weighted_sampler:
+    # Compute class weights for WeightedRandomSampler
+    targets_list = dataset.labels
+    class_counts = [sum(1 for t in targets_list if t == c) for c in [0, 1]]
+    class_weights = [1.0 / c for c in class_counts]
+    sample_weights = [class_weights[t] for t in targets_list]
+
+    # Goal: 468 instances - No Goal: 6996 instances
+
+    sampler = WeightedRandomSampler(sample_weights, num_samples=len(sample_weights), replacement=True)
+    dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler)
+else:
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
 # Model
 model = Transformer(vocab_size, embed_size, num_layers, num_heads, seq_len, num_classes, forward_expansion, dropout).to(device)
