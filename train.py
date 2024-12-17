@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
+from sklearn.metrics import precision_score, recall_score, f1_score
 
 
 # Dataset for football transcription
@@ -168,14 +169,14 @@ class Transformer(nn.Module):
 # Parameters
 vocab_size = 10000
 seq_len = 50
-embed_size = 128
-num_layers = 3
-num_heads = 4
-num_classes = 2  # Binary classification (Goal or No Goal)
-forward_expansion = 4
+embed_size = 256  # 128
+num_layers = 4  # 3
+num_heads = 4  # 4
+forward_expansion = 512  # 4
+num_classes = 2  # Binary classification (No Goal or Goal)
 dropout = 0.1
 batch_size = 32
-epochs = 10
+epochs = 20
 weighted_loss = [1.0, 1.0]  # weight loss for [No Goal, Goal] -> This could be [1 / freq_of_no_goal, 1 / freq_of_goal] or a simpler ratio
 weighted_sampler = True
 
@@ -217,12 +218,20 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 # Metrics storage
 losses = []
 accuracies = []
+precisions = []
+recalls = []
+f1_scores = []
 
 # Training loop
 for epoch in range(epochs):
+    model.train()
     correct = 0
     total = 0
     epoch_loss = 0
+
+    all_targets = []
+    all_predictions = []
+
     for inputs, targets in dataloader:
         inputs = inputs.to(device)
         targets = targets.to(device)
@@ -239,25 +248,51 @@ for epoch in range(epochs):
         correct += (predicted == targets).sum().item()
         total += targets.size(0)
 
+        all_targets.extend(targets.cpu().numpy())
+        all_predictions.extend(predicted.cpu().numpy())
+
     avg_loss = epoch_loss / len(dataloader)
     accuracy = correct / total
     losses.append(avg_loss)
     accuracies.append(accuracy)
 
-    print(f"Epoch {epoch + 1}/{epochs}, Loss: {avg_loss:.4f}, Accuracy: {accuracy:.4f}")
+    # Compute evaluation metrics for minority class (class=1)
+    precision = precision_score(all_targets, all_predictions, pos_label=1, zero_division=0)
+    recall = recall_score(all_targets, all_predictions, pos_label=1, zero_division=0)
+    f1 = f1_score(all_targets, all_predictions, pos_label=1, zero_division=0)
+    precisions.append(precision)
+    recalls.append(recall)
+    f1_scores.append(f1)
+
+    print(f"Epoch {epoch + 1}/{epochs}, Loss: {avg_loss:.4f}, Accuracy: {accuracy:.4f}, Precision (class=1): {precision:.4f}, Recall (class=1): {recall:.4f}, F1 (class=1): {f1:.4f}")
 
 # Save the model
 torch.save(model.state_dict(), model_save_path)
 print(f"\nModel saved to {model_save_path}\n")
 
 # Visualization
-plt.figure(figsize=(10, 5))
-plt.plot(range(1, epochs + 1), losses, label="Loss")
-plt.plot(range(1, epochs + 1), accuracies, label="Accuracy")
+plt.figure(figsize=(10, 8))
+
+# Top subplot: Loss and Accuracy
+plt.subplot(2, 1, 1)
+plt.plot(range(1, epochs + 1), losses, label="Loss", marker="o")
+plt.plot(range(1, epochs + 1), accuracies, label="Accuracy", marker="o")
 plt.xlabel("Epochs")
 plt.ylabel("Value")
 plt.title("Loss and Accuracy over Epochs")
 plt.legend()
+
+# Bottom subplot: Precision, Recall, and F1-score (Minority Class)
+plt.subplot(2, 1, 2)
+plt.plot(range(1, epochs + 1), recalls, label="Recall (class=1)", marker="o")
+plt.plot(range(1, epochs + 1), precisions, label="Precision (class=1)", marker="o")
+plt.plot(range(1, epochs + 1), f1_scores, label="F1 (class=1)", marker="o")
+plt.xlabel("Epochs")
+plt.ylabel("Value")
+plt.title("Minority Class Metrics over Epochs")
+plt.legend()
+
+plt.tight_layout()
 plt.savefig("training.png")
 
 # After training
