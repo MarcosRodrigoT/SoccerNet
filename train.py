@@ -27,7 +27,7 @@ class FootballDataset(Dataset):
         for file_name in os.listdir(folder_path):
             if file_name.endswith(".csv"):
                 file_path = os.path.join(folder_path, file_name)
-                df = pd.read_csv(file_path, encoding="latin1")
+                df = pd.read_csv(file_path, encoding="utf-8")
                 self.sentences.extend(df.iloc[:, 2].astype(str).tolist())
                 self.labels.extend(df.iloc[:, 3].astype(int).tolist())
 
